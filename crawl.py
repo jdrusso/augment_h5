@@ -7,7 +7,7 @@ import numpy
 import logging
 from westpa.core import h5io
 from westpa.cli.tools.w_crawl import WESTPACrawler
-import mdtraj as md
+import MDAnalysis as mda
 import numpy as np
 
 log = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class IterationProcessor(object):
         '''
 
         log.debug(f"Loading topology from {self.topology_filename}")
-        self.topology = md.load_topology(self.topology_filename)
+        self.universe = mda.Universe(self.topology_filename)
 
     def process_iteration(self, n_iter, iter_group):
         '''
@@ -74,7 +74,7 @@ class IterationProcessor(object):
         nsegs = iter_group['seg_index'].shape[0]
 
         # The dimensionality of the data you wish to store
-        data_dims = self.topology.n_atoms
+        data_dims = self.universe.atoms.n_atoms
 
         # Create an array to hold your data
         iteration_data_array = numpy.zeros((nsegs, self.nframes, data_dims, 3))
@@ -88,7 +88,8 @@ class IterationProcessor(object):
                 traj_path = traj_pattern.format(n_iter=n_iter, seg_id=iseg)
 
                 try:
-                    coords = np.squeeze(md.load(traj_path, top=self.topology)._xyz)
+                    self.universe.load_new(traj_path)
+                    coords = self.universe.coord.positions
                 # If this traj doesn't exist, handle it gracefully and put NaNs in the coords
                 except OSError:
                     coords = np.full(shape=(data_dims, 3), fill_value=np.nan)
